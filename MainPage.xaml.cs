@@ -1,112 +1,158 @@
-﻿using Microsoft.Maui.Controls;
-using Microsoft.Maui.Storage;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using IOSerializer;
 
-namespace UsU;
+namespace WordsGame;
 
 public partial class MainPage : ContentPage
 {
-    #region State Bools
+    #region GameStatitics
 
+
+
+
+    private Dictionary<string, string> _strings;
+    private Dictionary<string, float> _floats;
     #endregion
 
-    private int Score { get { ScoreUpdate(); return _score; } set { _score = value; ScoreUpdate(); } }
-    private int _score = 5;
+    #region GameData
+    private int Score { get { return (int)_floats["Score"]; } set { _floats["Score"] = value; ScoreUpdate(); } }
+    private new int Style { get; set; }
 
+    private bool answered = false;
 
     public string Answer;
 
-    private List<string> _possibleWords = new();
+    private List<string> _possibleWords;
+
+    private readonly char[] _styles = new[]
+    {
+        'F',
+        'E',
+        'D',
+        'C',
+        'B',
+        'A',
+        'S',
+        'Z',
+        'G',
+    };
+    private readonly int[] _styleTimes = new[]
+    {   -1,
+        13,
+        11,
+        9,
+        8,
+        7,
+        6,
+        4,
+        3
+    };
     private string NextWord { get => _possibleWords[random.Next(_possibleWords.Count - 1)]; }
     private string _currentWord;
-    private string _threeLetters;
-
     private readonly Random random = new Random();
+    #endregion
+
     public MainPage()
     {
-        LoadMauiAsset();
         InitializeComponent();
-        PlayNextWord();
-        Window.Created += OnOpened;
-        Window.Stopped += OnStopped;
+        OnOpened();
     }
 
-    private void OnStopped(object sender, EventArgs e)
+    public async void OnOpened()
     {
-        SaveScore();
+        await LoadWordsHold();
+        await Load();
+        Thread combobarLoop = new(CombobarLoop);
+        combobarLoop.Start();
     }
-    async Task SaveScore()
+
+    async Task Save()
     {
-        using var stream = await FileSystem.OpenAppPackageFileAsync("Save.kln");
-        using var reader = new StreamReader(stream);
 
-        var contents = reader.ReadToEnd();
+        if (!File.Exists(_savePath))
+        {
+            var file = File.Create(_savePath);
+            file.Close();
+        }
+        Serializer.Serialize(File.OpenWrite(_savePath), _strings, _floats);
     }
-
-    private void OnOpened(object sender, EventArgs eventArgs)
+    async Task Load()
     {
-        LoadScore();
-    }
+        if (!File.Exists(_savePath))
+        {
+            _strings = new() { { "ThreeLetters", "" } };
+            _floats = new() { { "Score", 5 } };
+            PlayNextWord();
+            return;
+        }
 
-    async Task LoadScore()
-    {
-        using var stream = await FileSystem.OpenAppPackageFileAsync("Save.kln");
-        stream.Position = 0;
-        using var writer = new StreamWriter(stream);
-        writer.Write(Score);
+        Serializer.Deserialize(File.OpenRead(_savePath), out _strings, out _floats);
+        Score = (int)_floats["Score"];
+        WordLbl.Text = _strings["ThreeLetters"];
     }
-
-    async Task LoadMauiAsset()
+    async Task LoadWordsHold()
     {
         using var stream = await FileSystem.OpenAppPackageFileAsync("Dict.txt");
         using var reader = new StreamReader(stream);
 
-        var contents = reader.ReadToEnd();
-        _possibleWords = contents.Replace("\r", "").Split('\n').ToList();
+        _possibleWords = reader.ReadToEnd().Split(' ').ToList();
     }
 
     private void OnEnterBtn(object sender, EventArgs e)
     {
         if (Answer == null)
             return;
-        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_threeLetters))
+        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_strings["ThreeLetters"]))
         {
-            VictoryMessage.Text = "Congrats";
+            VictoryMessage.Text = "Congrats!";
             Score += 1;
+            if (Style < 8)
+                Style++;
+            answered = true;
+            if (_floats.ContainsKey("MaxStyle"))
+                if (_floats["MaxStyle"] < Style)
+                    _floats["MaxStyle"] = Style;
+                else
+                    _floats.Add("MaxStyle", Style);
             InputBox.Text = "";
             PlayNextWord();
         }
         else
         {
-            VictoryMessage.Text = "Go To Hell";
+            VictoryMessage.Text = "Go To Hell!";
             Score -= 1;
+            answered = true;
+            if (Style > 0)
+                Style--;
         }
     }
     private void OnSkipBtn(object sender, EventArgs e)
     {
         Score -= 3;
-        
-         PlayNextWord();
+        if (Style > 0)
+            Style--;
+
+        PlayNextWord();
     }
     private void OnHintBtn(object sender, EventArgs e)
     {
+        if (WordLbl.Text.Length > 14)
+        {
+            VictoryMessage.Text = "Max Hint Count";
+            return;
+        }
+
         Score -= 1;
-        
+
         List<string> validHints = new();
         for (int i = 0; i < _possibleWords.Count; i++)
-            if (_possibleWords[i].Contains(_threeLetters))
+            if (_possibleWords[i].Contains(_strings["ThreeLetters"]))
                 validHints.Add(_possibleWords[i]);
-        
-        string hint = validHints[random.Next(validHints.Count)];
-        int index = random.Next(0, hint.Length-2);
-        
-        WordLbl.Text = hint[index].ToString() + hint[++index] + hint[++index];
-    }
 
+        string hint = validHints[random.Next(validHints.Count)];
+        int index = random.Next(0, hint.Length - 2);
+
+        WordLbl.Text += $" ({hint[index]}{hint[++index]}{hint[++index]})";
+    }
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
         if (((Entry)sender).Text == null)
@@ -121,27 +167,75 @@ public partial class MainPage : ContentPage
     private void PlayNextWord()
     {
         _currentWord = NextWord;
+        if (_currentWord.Length < 3)
+        {
+            PlayNextWord();
+            return;
+        }
         int firstIndex = random.Next(_currentWord.Length - 2);
-        _threeLetters = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
-        WordLbl.Text = _threeLetters;
+        if (!_strings.ContainsKey("ThreeLetters"))
+            _strings.Add("ThreeLetters", "");
+        _strings["ThreeLetters"] = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
+
+        WordLbl.Text = _strings["ThreeLetters"];
+
+        Save();
     }
 
     private void ScoreUpdate()
     {
-        if (_score < 0)
+        if (_floats["Score"] < 0)
         {
-            WordLbl.Text = "You Lost!";
+            InputBox.Text = "You Lost!";
             Reset();
         }
-        ScoreLbl.Text = _score.ToString();
+        ScoreLbl.Text = _floats["Score"].ToString();
+        if (_floats["Score"] > 50)
+        {
+            InputBox.Text = "You Won!";
+            _floats["Score"] = 1000;
+        }
     }
-
-    
 
     private void Reset()
     {
-        _score = 5;
-        InputBox.Text = "";
         PlayNextWord();
+
+        Score = 5;
+    }
+
+    private void CombobarLoop()
+    {
+        while (true)
+        {
+            Dispatcher.Dispatch(new Action(() => ComboTextLbl.Text = _styles[Style].ToString())).ToString();
+            if (Style == 0)
+            {
+                Dispatcher.Dispatch(new Action(() => { ComboBar.Progress = 1; }));
+                Thread.Sleep(5);
+                continue;
+            }
+            for (int i = 1; i <= _styleTimes[Style] * 20; i++)
+            {
+                Thread.Sleep(50);
+                if (answered)
+                {
+                    answered = false;
+                    break;
+                }
+                float progress = 1f - (float)((float)i / (float)((float)_styleTimes[Style] * 20f));
+                Dispatcher.Dispatch(new Action(() =>
+                {
+                    ComboBar.Progress = progress;
+                }));
+                Dispatcher.Dispatch(new Action(() => DebugLbl.Text = (progress * 100).ToString()));
+
+                if (i == _styleTimes[Style] * 20)
+                {
+                    Style--;
+                    break;
+                }
+            }
+        }
     }
 }
