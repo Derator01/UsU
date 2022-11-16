@@ -52,9 +52,14 @@
                     x:Name="ComboBar" 
                     ProgressColor="#FF0000" 
                     BackgroundColor="{AppThemeBinding Light=#000000, Dark=#222222}" />
+                <Label x:Name="ComboTimeLbl"
+                       Text="100"/>
             </VerticalStackLayout>
-            <Label 
-                x:Name="DebugLbl"/>
+            <Button Text="Statistics" 
+                    Clicked="OnGoToStatistics" 
+                    TextColor="{AppThemeBinding Light=Black,Dark=White}" 
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" 
+                    x:Name="StatisticsBtn"/>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

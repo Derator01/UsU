@@ -1,7 +1,7 @@
 ﻿using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 
-namespace UsU;
+namespace WordsGame;
 
 public static class MauiProgram
 {

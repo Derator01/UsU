@@ -1,16 +1,16 @@
 ﻿using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 
-namespace UsU;
+namespace WordsGame;
 
 public partial class App : Application
 {
-	public App()
-	{
-		InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
 
-		MainPage = new AppShell();
-	}
+        MainPage = new NavigationPage(new MainPage());
+    }
     protected override Window CreateWindow(IActivationState activationState)
     {
         Window window = base.CreateWindow(activationState);

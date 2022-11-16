@@ -1,7 +1,7 @@
 ﻿using ObjCRuntime;
 using UIKit;
 
-namespace UsU;
+namespace WordsGame;
 
 public class Program
 {

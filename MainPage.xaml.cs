@@ -1,25 +1,33 @@
-﻿using IOSerializer;
+﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Storage;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using WordsGame.Storage;
 
 namespace WordsGame;
 
+[QueryProperty(nameof(_localStorage), "localStorage")]
 public partial class MainPage : ContentPage
 {
-    #region GameStatitics
+    #region AppHelpers
+    const int UPDATE_SPEED = 20;
 
-
-
-
-    private Dictionary<string, string> _strings;
-    private Dictionary<string, float> _floats;
+    private readonly Random random = new();
     #endregion
 
     #region GameData
-    private int Score { get { return (int)_floats["Score"]; } set { _floats["Score"] = value; ScoreUpdate(); } }
-    private new int Style { get; set; }
+    private int Score { get { return _localStorage.Score; } set { _localStorage.Score = value; ScoreUpdate(); _localStorage.Save(); } }
+    private new int Style { get => _localStorage.Style; set => _localStorage.Style = value; }
 
     private bool answered = false;
 
     public string Answer;
+
+    private readonly DataStorage _localStorage = new();
 
     private List<string> _possibleWords;
 
@@ -38,17 +46,16 @@ public partial class MainPage : ContentPage
     private readonly int[] _styleTimes = new[]
     {   -1,
         13,
-        11,
-        9,
+        10,
         8,
         7,
         6,
+        5,
         4,
         3
     };
     private string NextWord { get => _possibleWords[random.Next(_possibleWords.Count - 1)]; }
     private string _currentWord;
-    private readonly Random random = new Random();
     #endregion
 
     public MainPage()
@@ -59,37 +66,22 @@ public partial class MainPage : ContentPage
 
     public async void OnOpened()
     {
-        await LoadWordsHold();
-        await Load();
+        await LoadWordsHoldMultiThreaded();
+        Load();
         Thread combobarLoop = new(CombobarLoop);
         combobarLoop.Start();
+        ScoreLbl.Text = _localStorage.Score.ToString();
     }
 
-    async Task Save()
+    private void Load()
     {
-
-        if (!File.Exists(_savePath))
-        {
-            var file = File.Create(_savePath);
-            file.Close();
-        }
-        Serializer.Serialize(File.OpenWrite(_savePath), _strings, _floats);
-    }
-    async Task Load()
-    {
-        if (!File.Exists(_savePath))
-        {
-            _strings = new() { { "ThreeLetters", "" } };
-            _floats = new() { { "Score", 5 } };
+        if (string.IsNullOrEmpty(_localStorage.ThreeLetters))
             PlayNextWord();
-            return;
-        }
-
-        Serializer.Deserialize(File.OpenRead(_savePath), out _strings, out _floats);
-        Score = (int)_floats["Score"];
-        WordLbl.Text = _strings["ThreeLetters"];
+        else
+            WordLbl.Text = _localStorage.ThreeLetters;
     }
-    async Task LoadWordsHold()
+
+    private async Task LoadWordsHoldMultiThreaded()
     {
         using var stream = await FileSystem.OpenAppPackageFileAsync("Dict.txt");
         using var reader = new StreamReader(stream);
@@ -101,25 +93,27 @@ public partial class MainPage : ContentPage
     {
         if (Answer == null)
             return;
-        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_strings["ThreeLetters"]))
+        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_localStorage.ThreeLetters))
         {
             VictoryMessage.Text = "Congrats!";
-            Score += 1;
+            if (Style < 6)
+                Score++;
+            else if (Style < 8)
+                Score += 2;
+            else
+                Score += 3;
+
             if (Style < 8)
                 Style++;
             answered = true;
-            if (_floats.ContainsKey("MaxStyle"))
-                if (_floats["MaxStyle"] < Style)
-                    _floats["MaxStyle"] = Style;
-                else
-                    _floats.Add("MaxStyle", Style);
+
             InputBox.Text = "";
             PlayNextWord();
         }
         else
         {
             VictoryMessage.Text = "Go To Hell!";
-            Score -= 1;
+            //Score--;
             answered = true;
             if (Style > 0)
                 Style--;
@@ -127,8 +121,10 @@ public partial class MainPage : ContentPage
     }
     private void OnSkipBtn(object sender, EventArgs e)
     {
-        Score -= 3;
-        if (Style > 0)
+        Score -= 4;
+        if (Style > 3)
+            Style -= 3;
+        else if (Style > 0)
             Style--;
 
         PlayNextWord();
@@ -141,17 +137,24 @@ public partial class MainPage : ContentPage
             return;
         }
 
-        Score -= 1;
+        Score--;
 
         List<string> validHints = new();
         for (int i = 0; i < _possibleWords.Count; i++)
-            if (_possibleWords[i].Contains(_strings["ThreeLetters"]))
+            if (_possibleWords[i].Contains(_localStorage.ThreeLetters))
                 validHints.Add(_possibleWords[i]);
 
         string hint = validHints[random.Next(validHints.Count)];
         int index = random.Next(0, hint.Length - 2);
 
-        WordLbl.Text += $" ({hint[index]}{hint[++index]}{hint[++index]})";
+        string part = hint[index].ToString() + hint[++index] + hint[++index];
+        if (part == _localStorage.ThreeLetters)
+        {
+            Score++;
+            OnHintBtn(null, null);
+        }
+        else
+            WordLbl.Text += $" ({part})";
     }
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
@@ -173,28 +176,27 @@ public partial class MainPage : ContentPage
             return;
         }
         int firstIndex = random.Next(_currentWord.Length - 2);
-        if (!_strings.ContainsKey("ThreeLetters"))
-            _strings.Add("ThreeLetters", "");
-        _strings["ThreeLetters"] = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
 
-        WordLbl.Text = _strings["ThreeLetters"];
+        _localStorage.ThreeLetters = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
 
-        Save();
+        WordLbl.Text = _localStorage.ThreeLetters;
+
     }
 
     private void ScoreUpdate()
     {
-        if (_floats["Score"] < 0)
+        if (_localStorage.Score < 0)
         {
             InputBox.Text = "You Lost!";
             Reset();
         }
-        ScoreLbl.Text = _floats["Score"].ToString();
-        if (_floats["Score"] > 50)
+        if (_localStorage.Score > 50 && _localStorage.Score < 60)
         {
             InputBox.Text = "You Won!";
-            _floats["Score"] = 1000;
+            _localStorage.Score = 1000;
         }
+
+        ScoreLbl.Text = _localStorage.Score.ToString();
     }
 
     private void Reset()
@@ -208,34 +210,41 @@ public partial class MainPage : ContentPage
     {
         while (true)
         {
-            Dispatcher.Dispatch(new Action(() => ComboTextLbl.Text = _styles[Style].ToString())).ToString();
+            Dispatcher.Dispatch(() => ComboTextLbl.Text = _styles[Style].ToString());
+            int currentStyle = _styleTimes[Style];
+            Dispatcher.Dispatch(() => ComboTimeLbl.Text = currentStyle.ToString());
+            Dispatcher.Dispatch(() => { ComboBar.Progress = 1; });
             if (Style == 0)
             {
-                Dispatcher.Dispatch(new Action(() => { ComboBar.Progress = 1; }));
-                Thread.Sleep(5);
-                continue;
+                while (Style == 0)
+                    Thread.Sleep(20);
             }
-            for (int i = 1; i <= _styleTimes[Style] * 20; i++)
+            int comboTime = currentStyle * UPDATE_SPEED;
+            for (int i = 1; i <= comboTime; i++)
             {
                 Thread.Sleep(50);
-                if (answered)
+                if (answered || currentStyle != _localStorage.Style)
                 {
                     answered = false;
                     break;
                 }
-                float progress = 1f - (float)((float)i / (float)((float)_styleTimes[Style] * 20f));
-                Dispatcher.Dispatch(new Action(() =>
-                {
-                    ComboBar.Progress = progress;
-                }));
-                Dispatcher.Dispatch(new Action(() => DebugLbl.Text = (progress * 100).ToString()));
+                float progress = 1f - (float)(i / (float)comboTime);
+                Dispatcher.Dispatch(() => ComboBar.Progress = progress - 0.0001f);
+                Dispatcher.Dispatch(() => ComboTimeLbl.Text = ((int)(progress * currentStyle)).ToString());
 
-                if (i == _styleTimes[Style] * 20)
+                if (i == comboTime)
                 {
                     Style--;
                     break;
                 }
             }
         }
+    }
+
+    private async void OnGoToStatistics(object sender, EventArgs e)
+    {
+        await Navigation.PushAsync(new Statistics(new Dictionary<string, object>() {
+                                                                                    { nameof(_localStorage.MaxScore), _localStorage.MaxScore },
+                                                                                    { nameof(_localStorage.MaxStyle), _styles[_localStorage.MaxStyle] } }));
     }
 }

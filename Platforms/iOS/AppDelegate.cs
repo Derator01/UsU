@@ -1,6 +1,8 @@
 ﻿using Foundation;
+using Microsoft.Maui;
+using Microsoft.Maui.Hosting;
 
-namespace UsU;
+namespace WordsGame;
 
 [Register("AppDelegate")]
 public class AppDelegate : MauiUIApplicationDelegate
