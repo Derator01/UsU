@@ -138,24 +138,39 @@ public partial class MainPage : ContentPage
         _server = new TcpListener(_localIP, PORT);
         _server.Start();
 
-        byte[] bytes = new byte[256];
-        string data = null;
         try
         {
+            while(_networking)
+            {
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
+            
+            var client = _server.AcceptTcpClient()
 
-            _clients.Add(_server.AcceptTcpClient());
+            NetworkStream stream = client.GetStream();
 
-            NetworkStream stream = _clients.GetLast().GetStream();
+            byte nextByte;
+            if((nextByte =stream.ReadNextByte()) != 0x01)
+            {
+                Dispatcher.Dispatch(() => NDebugLbl.Text = "Failed To Connect!");
 
-            if(stream.ReadNextByte() != 0x01)
-                
-
-            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Stopped));
+                client.Close();
+            }
+            else
+            {   
+                Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningM));
+                _clients.Add(client);
+            }
+            
+            }
         }
         catch (Exception e)
         {
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Error) + " " + e.Message);
+        }
+        finally
+        {
+            _server.Close();
+            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Stopped));
         }
     }
 
