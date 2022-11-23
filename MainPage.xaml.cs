@@ -29,6 +29,10 @@ public partial class MainPage : ContentPage
     private const int PORT = 13000;
     private readonly IPAddress _localIP = IPAddress.Parse("127.0.0.1");
 
+    private TcpListener _server;
+
+    private readonly List<TcpClient> _clients = new();
+
     private enum NetworkState : int
     {
         Offline = 0,
@@ -131,43 +135,27 @@ public partial class MainPage : ContentPage
 
     private void ServerLoop()
     {
-        var server = new TcpListener(_localIP, PORT);
-        server.Start();
+        _server = new TcpListener(_localIP, PORT);
+        _server.Start();
 
         byte[] bytes = new byte[256];
         string data = null;
         try
         {
-
-
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
 
-            using TcpClient client = server.AcceptTcpClient();
+            _clients.Add(_server.AcceptTcpClient());
 
-            NetworkStream stream = client.GetStream();
+            NetworkStream stream = _clients.GetLast().GetStream();
 
-            int nextByte;
-
-            while ((nextByte = stream.ReadByte()) != 0xFF)
-            {
-                while (nextByte != 0xFE)
-                {
-
-                }
-                Execute(bytes);
-            }
-
+            if(stream.ReadNextByte() != 0x01)
+                
 
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Stopped));
         }
         catch (Exception e)
         {
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Error) + " " + e.Message);
-        }
-        finally
-        {
-            server.Stop();
-            _networking = false;
         }
     }
 
