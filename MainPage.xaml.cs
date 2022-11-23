@@ -28,10 +28,11 @@ public partial class MainPage : ContentPage
 
     private const int PORT = 13000;
     private readonly IPAddress _localIP = IPAddress.Parse("127.0.0.1");
+    private int _clientCount = 0;
 
     private TcpListener _server;
 
-    private readonly List<TcpClient> _clients = new();
+    private readonly List<Client> _clients = new();
 
     private enum NetworkState : int
     {
@@ -144,7 +145,7 @@ public partial class MainPage : ContentPage
             {
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
             
-            var client = _server.AcceptTcpClient()
+            var tcpClient = _server.AcceptTcpClient()
 
             NetworkStream stream = client.GetStream();
 
@@ -152,13 +153,14 @@ public partial class MainPage : ContentPage
             if((nextByte =stream.ReadNextByte()) != 0x01)
             {
                 Dispatcher.Dispatch(() => NDebugLbl.Text = "Failed To Connect!");
-
                 client.Close();
             }
             else
             {   
                 Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningM));
+                Client client =new(_clientCount++, tcpClient)
                 _clients.Add(client);
+                client.PacketCame += OnPacket;
             }
             
             }
@@ -174,9 +176,37 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private void Execute(byte[] bytes)
+    private void OnPacket(Packet packet, int  clientID)
     {
-        throw new NotImplementedException();
+        switch(packet.Type)
+        {
+            case Packet.PacketType.Message:
+                NDebugLbl.Text = packet.Message;
+            break;
+            case Packet.PacketType.Command:
+                Execute(packet.Message);
+            break;
+        }
+    }
+
+    private void Execute(string command)
+    {
+        string arr = command.Split(' ');
+        for(int i = 0; i < arr.length-1; i++)
+            
+
+        if(command[1] != ' ')
+            return;
+
+        switch(type)
+        {
+            case 'w':
+                PeerAnswer(command);
+            break;
+            case 'b':
+                Broadcast(command);
+            break;
+        }
     }
 
     //    public async void OnOpened()

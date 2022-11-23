@@ -12,7 +12,7 @@ public class Client
     public delegate void OnPacketCame(byte[] packet, int  clientID);
     public event OnPacketCame PacketCame; 
 
-    public Client(int id, tcpClient)
+    public Client(int id, TcpClient tcpClient)
     {
         ID = id;
         TcpClient = tcpClient;

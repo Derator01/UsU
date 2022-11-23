@@ -15,14 +15,14 @@ public sealed class Packet
 
     public const byte PACKET_END = 0xFE;
 
-    public readonly PacketType _packetType;
+    public readonly PacketType Type;
 
-    public readonly string _message;
+    public readonly string Message;
 
     public Packet(byte[] bytes)
     {
-        _packetType = (PacketType)bytes[0];
-        _message = Encoding.Unicode.GetString(bytes.Skip(1).ToArray());
+        PacketType = (PacketType)bytes[0];
+        Message = Encoding.Unicode.GetString(bytes.Skip(1).ToArray());
     }
 
     public static byte[] ToBytes(PacketType type, string message) => Encoding.Unicode.GetBytes(message).Prepend((byte)type).Append(PACKET_END).ToArray();
