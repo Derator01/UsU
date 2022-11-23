@@ -26,6 +26,7 @@
                     BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" 
                     Clicked="OnEnterBtn" 
                     x:Name="EnterBtn" />
+            
             <HorizontalStackLayout>
                 <Label x:Name="ScoreLbl" 
                        Margin="10" 
@@ -43,6 +44,7 @@
                         BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" 
                         x:Name="HintBtn" />
             </HorizontalStackLayout>
+            
             <VerticalStackLayout 
                 VerticalOptions="Center" >
                 <Label 
@@ -51,10 +53,31 @@
                 <ProgressBar 
                     x:Name="ComboBar" 
                     ProgressColor="#FF0000" 
-                    BackgroundColor="{AppThemeBinding Light=#000000, Dark=#222222}" />
+                    BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#222222}" />
                 <Label x:Name="ComboTimeLbl"
                        Text="100"/>
             </VerticalStackLayout>
+
+            <HorizontalStackLayout>
+                <VerticalStackLayout>
+                    <Label
+                        Text="Offline"
+                        x:Name="NetworkStateLbl"/>
+                    <Label x:Name="NDebugLbl"/>
+                </VerticalStackLayout>
+                <Button 
+                    Text="Switch Connection"
+                    TextColor="{AppThemeBinding Light=Black,Dark=White}" 
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" 
+                    Clicked="OnConnectionSwitchBtn"/>
+                <Button 
+                    x:Name="StartStopBtn"
+                    Text="Start Game"
+                    TextColor="{AppThemeBinding Light=Black,Dark=White}" 
+                    BackgroundColor="{AppThemeBinding Light=White, Dark=Black}" 
+                    Clicked="OnStartStopGameBtn"/>
+            </HorizontalStackLayout>          
+                
             <Button Text="Statistics" 
                     Clicked="OnGoToStatistics" 
                     TextColor="{AppThemeBinding Light=Black,Dark=White}" 

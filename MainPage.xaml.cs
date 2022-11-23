@@ -1,22 +1,53 @@
 ﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Networking;
 using Microsoft.Maui.Storage;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using WordsGame.Storage;
 
 namespace WordsGame;
 
-[QueryProperty(nameof(_localStorage), "localStorage")]
 public partial class MainPage : ContentPage
 {
     #region AppHelpers
     const int UPDATE_SPEED = 20;
 
     private readonly Random random = new();
+    #endregion
+
+    #region Networking
+    private NetworkState _networkState = NetworkState.Offline;
+
+    private bool _networking = false;
+
+    private const int PORT = 13000;
+    private readonly IPAddress _localIP = IPAddress.Parse("127.0.0.1");
+
+    private enum NetworkState : int
+    {
+        Offline = 0,
+        Client = 1,
+        Host = 2
+    }
+    private enum ClientStates : int
+    {
+        NotConnected = 0,
+        Connecting = 1,
+        FailedToConnect = 2
+    }
+    private enum HostStates : int
+    {
+        Stopped = 0,
+        RunningS = 1,
+        RunningM = 2,
+        Error = 3
+    }
     #endregion
 
     #region GameData
@@ -44,7 +75,7 @@ public partial class MainPage : ContentPage
         'G',
     };
     private readonly int[] _styleTimes = new[]
-    {   -1,
+    {   0,
         13,
         10,
         8,
@@ -61,25 +92,106 @@ public partial class MainPage : ContentPage
     public MainPage()
     {
         InitializeComponent();
-        OnOpened();
+        //OnOpened();
     }
 
-    public async void OnOpened()
+    private void OnConnectionSwitchBtn(object sender, EventArgs e)
     {
-        await LoadWordsHoldMultiThreaded();
-        Load();
-        Thread combobarLoop = new(CombobarLoop);
-        combobarLoop.Start();
-        ScoreLbl.Text = _localStorage.Score.ToString();
+        if (_networking)
+            return;
+
+        _networkState++;
+        if (!Enum.IsDefined(typeof(NetworkState), _networkState))
+            _networkState = 0;
+
+        NetworkStateLbl.Text = Enum.GetName(typeof(NetworkState), _networkState);
     }
 
-    private void Load()
+    private void OnStartStopGameBtn(object sender, EventArgs e)
     {
-        if (string.IsNullOrEmpty(_localStorage.ThreeLetters))
-            PlayNextWord();
+        if (_networkState == 0)
+            return;
+        if (Connectivity.Current.NetworkAccess == NetworkAccess.None || Connectivity.Current.NetworkAccess == NetworkAccess.Unknown)
+            return;
+
+        _networking = !_networking;
+
+        StartStopBtn.Text = _networking ? "Stop Game" : "Start Game";
+
+        if (_networkState == NetworkState.Client)
+            new Thread(ClientLoop).Start();
         else
-            WordLbl.Text = _localStorage.ThreeLetters;
+            new Thread(ServerLoop).Start();
     }
+
+    private void ClientLoop()
+    {
+
+    }
+
+    private void ServerLoop()
+    {
+        var server = new TcpListener(_localIP, PORT);
+        server.Start();
+
+        byte[] bytes = new byte[256];
+        string data = null;
+        try
+        {
+
+
+            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
+
+            using TcpClient client = server.AcceptTcpClient();
+
+            NetworkStream stream = client.GetStream();
+
+            int nextByte;
+
+            while ((nextByte = stream.ReadByte()) != 0xFF)
+            {
+                while (nextByte != 0xFE)
+                {
+
+                }
+                Execute(bytes);
+            }
+
+
+            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Stopped));
+        }
+        catch (Exception e)
+        {
+            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Error) + " " + e.Message);
+        }
+        finally
+        {
+            server.Stop();
+            _networking = false;
+        }
+    }
+
+    private void Execute(byte[] bytes)
+    {
+        throw new NotImplementedException();
+    }
+
+    //    public async void OnOpened()
+    //    {
+    //        await LoadWordsHoldMultiThreaded();
+    //        Load();
+    //        Thread combobarLoop = new(CombobarLoop);
+    //        combobarLoop.Start();
+    //        ScoreLbl.Text = _localStorage.Score.ToString();
+    //    }
+
+    //    private void Load()
+    //    {
+    //        if (string.IsNullOrEmpty(_localStorage.ThreeLetters))
+    //            PlayNextWord();
+    //        else
+    //            WordLbl.Text = _localStorage.ThreeLetters;
+    //    }
 
     private async Task LoadWordsHoldMultiThreaded()
     {
@@ -91,160 +203,160 @@ public partial class MainPage : ContentPage
 
     private void OnEnterBtn(object sender, EventArgs e)
     {
-        if (Answer == null)
-            return;
-        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_localStorage.ThreeLetters))
-        {
-            VictoryMessage.Text = "Congrats!";
-            if (Style < 6)
-                Score++;
-            else if (Style < 8)
-                Score += 2;
-            else
-                Score += 3;
+        //        if (Answer == null)
+        //            return;
+        //        if (_possibleWords.Contains(Answer.ToLower()) && Answer.ToLower().Contains(_localStorage.ThreeLetters))
+        //        {
+        //            VictoryMessage.Text = "Congrats!";
+        //            if (Style < 6)
+        //                Score++;
+        //            else if (Style < 8)
+        //                Score += 2;
+        //            else
+        //                Score += 3;
 
-            if (Style < 8)
-                Style++;
-            answered = true;
+        //            if (Style < 8)
+        //                Style++;
+        //            answered = true;
 
-            InputBox.Text = "";
-            PlayNextWord();
-        }
-        else
-        {
-            VictoryMessage.Text = "Go To Hell!";
-            //Score--;
-            answered = true;
-            if (Style > 0)
-                Style--;
-        }
+        //            InputBox.Text = "";
+        //            PlayNextWord();
+        //        }
+        //        else
+        //        {
+        //            VictoryMessage.Text = "Go To Hell!";
+        //            //Score--;
+        //            answered = true;
+        //            if (Style > 0)
+        //                Style--;
+        //        }
     }
     private void OnSkipBtn(object sender, EventArgs e)
     {
-        Score -= 4;
-        if (Style > 3)
-            Style -= 3;
-        else if (Style > 0)
-            Style--;
+        //        Score -= 4;
+        //        if (Style > 3)
+        //            Style -= 3;
+        //        else if (Style > 0)
+        //            Style--;
 
-        PlayNextWord();
+        //        PlayNextWord();
     }
     private void OnHintBtn(object sender, EventArgs e)
     {
-        if (WordLbl.Text.Length > 14)
-        {
-            VictoryMessage.Text = "Max Hint Count";
-            return;
-        }
+        //        if (WordLbl.Text.Length > 14)
+        //        {
+        //            VictoryMessage.Text = "Max Hint Count";
+        //            return;
+        //        }
 
-        Score--;
+        //        Score--;
 
-        List<string> validHints = new();
-        for (int i = 0; i < _possibleWords.Count; i++)
-            if (_possibleWords[i].Contains(_localStorage.ThreeLetters))
-                validHints.Add(_possibleWords[i]);
+        //        List<string> validHints = new();
+        //        for (int i = 0; i < _possibleWords.Count; i++)
+        //            if (_possibleWords[i].Contains(_localStorage.ThreeLetters))
+        //                validHints.Add(_possibleWords[i]);
 
-        string hint = validHints[random.Next(validHints.Count)];
-        int index = random.Next(0, hint.Length - 2);
+        //        string hint = validHints[random.Next(validHints.Count)];
+        //        int index = random.Next(0, hint.Length - 2);
 
-        string part = hint[index].ToString() + hint[++index] + hint[++index];
-        if (part == _localStorage.ThreeLetters)
-        {
-            Score++;
-            OnHintBtn(null, null);
-        }
-        else
-            WordLbl.Text += $" ({part})";
+        //        string part = hint[index].ToString() + hint[++index] + hint[++index];
+        //        if (part == _localStorage.ThreeLetters)
+        //        {
+        //            Score++;
+        //            OnHintBtn(null, null);
+        //        }
+        //        else
+        //            WordLbl.Text += $" ({part})";
     }
     private void OnTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (((Entry)sender).Text == null)
-            return;
-        Answer = ((Entry)sender).Text.Trim();
+        //        if (((Entry)sender).Text == null)
+        //            return;
+        //        Answer = ((Entry)sender).Text.Trim();
     }
     private void OnCompleted(object sender, EventArgs e)
     {
-        OnEnterBtn(null, null);
+        //        OnEnterBtn(null, null);
     }
 
     private void PlayNextWord()
     {
-        _currentWord = NextWord;
-        if (_currentWord.Length < 3)
-        {
-            PlayNextWord();
-            return;
-        }
-        int firstIndex = random.Next(_currentWord.Length - 2);
+        //        _currentWord = NextWord;
+        //        if (_currentWord.Length < 3)
+        //        {
+        //            PlayNextWord();
+        //            return;
+        //        }
+        //        int firstIndex = random.Next(_currentWord.Length - 2);
 
-        _localStorage.ThreeLetters = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
+        //        _localStorage.ThreeLetters = _currentWord[firstIndex].ToString() + _currentWord[++firstIndex] + _currentWord[++firstIndex];
 
-        WordLbl.Text = _localStorage.ThreeLetters;
+        //        WordLbl.Text = _localStorage.ThreeLetters;
 
     }
 
     private void ScoreUpdate()
     {
-        if (_localStorage.Score < 0)
-        {
-            InputBox.Text = "You Lost!";
-            Reset();
-        }
-        if (_localStorage.Score > 50 && _localStorage.Score < 60)
-        {
-            InputBox.Text = "You Won!";
-            _localStorage.Score = 1000;
-        }
+        //        if (_localStorage.Score < 0)
+        //        {
+        //            InputBox.Text = "You Lost!";
+        //            Reset();
+        //        }
+        //        if (_localStorage.Score > 50 && _localStorage.Score < 60)
+        //        {
+        //            InputBox.Text = "You Won!";
+        //            _localStorage.Score = 1000;
+        //        }
 
-        ScoreLbl.Text = _localStorage.Score.ToString();
+        //        ScoreLbl.Text = _localStorage.Score.ToString();
     }
 
     private void Reset()
     {
-        PlayNextWord();
+        //        PlayNextWord();
 
-        Score = 5;
+        //        Score = 5;
     }
 
     private void CombobarLoop()
     {
-        while (true)
-        {
-            Dispatcher.Dispatch(() => ComboTextLbl.Text = _styles[Style].ToString());
-            int currentStyle = _styleTimes[Style];
-            Dispatcher.Dispatch(() => ComboTimeLbl.Text = currentStyle.ToString());
-            Dispatcher.Dispatch(() => { ComboBar.Progress = 1; });
-            if (Style == 0)
-            {
-                while (Style == 0)
-                    Thread.Sleep(20);
-            }
-            int comboTime = currentStyle * UPDATE_SPEED;
-            for (int i = 1; i <= comboTime; i++)
-            {
-                Thread.Sleep(50);
-                if (answered || currentStyle != _localStorage.Style)
-                {
-                    answered = false;
-                    break;
-                }
-                float progress = 1f - (float)(i / (float)comboTime);
-                Dispatcher.Dispatch(() => ComboBar.Progress = progress - 0.0001f);
-                Dispatcher.Dispatch(() => ComboTimeLbl.Text = ((int)(progress * currentStyle)).ToString());
+        //        while (true)
+        //        {
+        //            Dispatcher.Dispatch(() => ComboTextLbl.Text = _styles[Style].ToString());
+        //            int currentStyle = _styleTimes[Style];
+        //            Dispatcher.Dispatch(() => ComboTimeLbl.Text = currentStyle.ToString());
+        //            Dispatcher.Dispatch(() => { ComboBar.Progress = 1; });
+        //            if (Style == 0)
+        //            {
+        //                while (Style == 0)
+        //                    Thread.Sleep(20);
+        //            }
+        //            int comboTime = currentStyle * UPDATE_SPEED;
+        //            for (int i = 1; i <= comboTime; i++)
+        //            {
+        //                Thread.Sleep(50);
+        //                if (answered || currentStyle != _localStorage.Style)
+        //                {
+        //                    answered = false;
+        //                    break;
+        //                }
+        //                float progress = 1f - (float)(i / (float)comboTime);
+        //                Dispatcher.Dispatch(() => ComboBar.Progress = progress - 0.0001f);
+        //                Dispatcher.Dispatch(() => ComboTimeLbl.Text = ((int)(progress * currentStyle)).ToString());
 
-                if (i == comboTime)
-                {
-                    Style--;
-                    break;
-                }
-            }
-        }
+        //                if (i == comboTime)
+        //                {
+        //                    Style--;
+        //                    break;
+        //                }
+        //            }
+        //        }
     }
 
     private async void OnGoToStatistics(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new Statistics(new Dictionary<string, object>() {
-                                                                                    { nameof(_localStorage.MaxScore), _localStorage.MaxScore },
-                                                                                    { nameof(_localStorage.MaxStyle), _styles[_localStorage.MaxStyle] } }));
+        //        await Navigation.PushAsync(new Statistics(new Dictionary<string, object>() {
+        //                                                                                    { nameof(_localStorage.MaxScore), _localStorage.MaxScore },
+        //                                                                                    { nameof(_localStorage.MaxStyle), _styles[_localStorage.MaxStyle] } }));
     }
 }
