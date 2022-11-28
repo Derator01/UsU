@@ -21,7 +21,7 @@ public sealed class Packet
 
     public Packet(byte[] bytes)
     {
-        PacketType = (PacketType)bytes[0];
+        Type = (PacketType)bytes[0];
         Message = Encoding.Unicode.GetString(bytes.Skip(1).ToArray());
     }
 

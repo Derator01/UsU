@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using UsU.Networking;
 using WordsGame.Storage;
 
 namespace WordsGame;
@@ -141,28 +142,28 @@ public partial class MainPage : ContentPage
 
         try
         {
-            while(_networking)
+            while (_networking)
             {
-            Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
-            
-            var tcpClient = _server.AcceptTcpClient()
+                Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningS));
 
-            NetworkStream stream = client.GetStream();
+                var tcpClient = _server.AcceptTcpClient();
 
-            byte nextByte;
-            if((nextByte =stream.ReadNextByte()) != 0x01)
-            {
-                Dispatcher.Dispatch(() => NDebugLbl.Text = "Failed To Connect!");
-                client.Close();
-            }
-            else
-            {   
-                Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningM));
-                Client client =new(_clientCount++, tcpClient)
-                _clients.Add(client);
-                client.PacketCame += OnPacket;
-            }
-            
+                NetworkStream stream = tcpClient.GetStream();
+
+                byte nextByte;
+                if ((nextByte = (byte)stream.ReadByte()) != 0x01)
+                {
+                    Dispatcher.Dispatch(() => NDebugLbl.Text = "Failed To Connect!");
+                    tcpClient.Close();
+                }
+                else
+                {
+                    Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.RunningM));
+                    Client client = new(_clientCount++, tcpClient);
+                    _clients.Add(client);
+                    client.PacketCame += OnPacket;
+                }
+
             }
         }
         catch (Exception e)
@@ -171,41 +172,41 @@ public partial class MainPage : ContentPage
         }
         finally
         {
-            _server.Close();
+            _server.Stop();
             Dispatcher.Dispatch(() => NDebugLbl.Text = nameof(HostStates.Stopped));
         }
     }
 
-    private void OnPacket(Packet packet, int  clientID)
+    private void OnPacket(int clientID, Packet packet)
     {
-        switch(packet.Type)
+        switch (packet.Type)
         {
             case Packet.PacketType.Message:
                 NDebugLbl.Text = packet.Message;
-            break;
+                break;
             case Packet.PacketType.Command:
                 Execute(packet.Message);
-            break;
+                break;
         }
     }
 
     private void Execute(string command)
     {
-        string arr = command.Split(' ');
-        for(int i = 0; i < arr.length-1; i++)
-            
+        string[] arr = command.Split(' ');
+        for (int i = 0; i < arr.Length - 1; i++)
 
-        if(command[1] != ' ')
-            return;
 
-        switch(type)
+            if (command[1] != ' ')
+                return;
+
+        switch (type)
         {
             case 'w':
                 PeerAnswer(command);
-            break;
+                break;
             case 'b':
                 Broadcast(command);
-            break;
+                break;
         }
     }
 

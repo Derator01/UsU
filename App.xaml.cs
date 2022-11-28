@@ -11,6 +11,7 @@ public partial class App : Application
 
         MainPage = new NavigationPage(new MainPage());
     }
+
     protected override Window CreateWindow(IActivationState activationState)
     {
         Window window = base.CreateWindow(activationState);

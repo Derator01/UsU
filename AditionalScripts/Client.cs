@@ -1,4 +1,7 @@
+using System;
+using System.Net.Sockets;
 using System.Threading;
+using WordsGame;
 
 namespace UsU.Networking;
 
@@ -6,17 +9,17 @@ public class Client
 {
     public readonly int ID;
     public readonly TcpClient TcpClient;
-    private readonly NetworkingStream stream;
-    public bool Connected {get => TcpClient.Connected;}
+    private readonly NetworkStream stream;
+    public bool Connected { get => TcpClient.Connected; }
 
-    public delegate void OnPacketCame(byte[] packet, int  clientID);
-    public event OnPacketCame PacketCame; 
+    public delegate void OnPacketCame(int clientID, Packet packet);
+    public event OnPacketCame PacketCame;
 
     public Client(int id, TcpClient tcpClient)
     {
         ID = id;
         TcpClient = tcpClient;
-        stream TcpClient.GetStream();
+        stream = TcpClient.GetStream();
         new Thread(ClientLoop).Start();
     }
 
@@ -24,7 +27,7 @@ public class Client
     {
         try
         {
-            while(TcpClient.Connected)
+            while (TcpClient.Connected)
             {
                 throw new NotImplementedException();
             }
