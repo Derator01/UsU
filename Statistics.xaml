@@ -4,9 +4,8 @@
              x:Class="WordsGame.Statistics"
              Title="Statistics">
     <ScrollView>
-        <VerticalStackLayout>
-            <Label x:Name="MaxScore"/>
-            <Label x:Name="MaxStyle"/>
+        <VerticalStackLayout  x:Name="MainLayout">
+            
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

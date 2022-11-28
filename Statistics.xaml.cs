@@ -5,15 +5,15 @@ namespace WordsGame;
 
 public partial class Statistics : ContentPage
 {
-    public Statistics(IDictionary<string, object> query)
+    public Statistics(IDictionary<string, object> dictionary)
     {
         InitializeComponent();
-        ApplyQueryAttributes(query);
+        LoadStatistics(dictionary);
     }
 
-    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    public void LoadStatistics(IDictionary<string, object> dictionary)
     {
-        MaxScore.Text = $"Max Score = {query[nameof(MaxScore)]}";
-        MaxStyle.Text = $"Max Style = {query[nameof(MaxStyle)]}";
+        foreach(var obj in dictionary)
+            MainLayout.Add(new label() {Text = $"{obj.Key.SplitByCapitals()} = {obj.Value}"});
     }
 }
